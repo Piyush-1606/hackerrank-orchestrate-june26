@@ -4,16 +4,16 @@ import logging
 from pathlib import Path
 from typing import Final
 
-import cv2
-
 try:
     from agents.base_agent import AgentRunContext, BaseAgent, RetryConfig
     from agents.claim_agent import ClaimAgent
     from models.schemas import ClaimInput, IssueType, Severity, VisionQualityFlag, VisionResult
+    from utils.image_quality import analyze_image_quality, detect_blurry_image, detect_low_light
 except ModuleNotFoundError:
     from .base_agent import AgentRunContext, BaseAgent, RetryConfig
     from .claim_agent import ClaimAgent
     from ..models.schemas import ClaimInput, IssueType, Severity, VisionQualityFlag, VisionResult
+    from ..utils.image_quality import analyze_image_quality, detect_blurry_image, detect_low_light
 
 
 class VisionAgent(BaseAgent[ClaimInput, VisionResult]):
@@ -67,8 +67,9 @@ class VisionAgent(BaseAgent[ClaimInput, VisionResult]):
         detected_object_part = self.select_object_part(input_data, extraction.affected_area)
         detected_severity = self.select_severity(input_data, extraction.claimed_severity)
         damage_visible = detected_issue_type not in {IssueType.UNKNOWN, IssueType.NONE}
-        blurry_image_detected = any(detect_blurry_image(str(path)) for path in resolved_paths)
-        low_light_detected = any(detect_low_light(str(path)) for path in resolved_paths)
+        quality_results = [analyze_image_quality(str(path)) for path in resolved_paths]
+        blurry_image_detected = any(result["blurry"] for result in quality_results)
+        low_light_detected = any(result["low_light"] for result in quality_results)
         image_quality_flags = self.determine_quality_flags(
             image_count=len(resolved_paths),
             damage_visible=damage_visible,
@@ -263,33 +264,3 @@ class VisionAgent(BaseAgent[ClaimInput, VisionResult]):
         selected. Keep provider-specific code out of the public agent contract.
         """
         raise NotImplementedError("VLM integration is not implemented yet")
-
-
-def detect_blurry_image(image_path: str) -> bool:
-    """Detect blur using variance of Laplacian.
-
-    A variance below 100 is treated as blurry. This is a common lightweight
-    threshold for natural images; it is intentionally conservative enough for
-    hackathon triage and can be calibrated later against labeled quality data.
-    """
-    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-    if image is None:
-        return False
-
-    variance = cv2.Laplacian(image, cv2.CV_64F).var()
-    return variance < 100.0
-
-
-def detect_low_light(image_path: str) -> bool:
-    """Detect low-light images using mean grayscale intensity.
-
-    A mean intensity below 50 on the 0-255 grayscale scale is treated as low
-    light. This catches very dark images while avoiding over-flagging normally
-    exposed indoor photos.
-    """
-    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-    if image is None:
-        return False
-
-    mean_intensity = image.mean()
-    return mean_intensity < 50.0
