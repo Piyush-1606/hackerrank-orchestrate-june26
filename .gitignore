@@ -5,3 +5,10 @@ __pycache__/
 .vscode/
 .idea/
 output.csv
+
+analysis_output/
+stress_images/
+
+__pycache__/
+*.pyc
+.venv/
