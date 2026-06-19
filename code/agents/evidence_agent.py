@@ -146,6 +146,8 @@ class EvidenceAgent(BaseAgent[EvidenceInput, EvidenceValidationResult]):
         vision: VisionResult,
     ) -> AlignmentStatus:
         """Compare extracted claimed object with detected image object."""
+        if VisionQualityFlag.WRONG_OBJECT in vision.image_quality_flags:
+            return AlignmentStatus.CONTRADICTS
         if vision.detected_object is None:
             return AlignmentStatus.UNKNOWN
         if vision.detected_object == claim.object_type:
@@ -229,11 +231,11 @@ class EvidenceAgent(BaseAgent[EvidenceInput, EvidenceValidationResult]):
         evidence_standard_met: bool,
     ) -> ClaimStatus:
         """Recommend evidence-only status from alignments."""
-        if object_alignment == AlignmentStatus.CONTRADICTS:
-            return ClaimStatus.CONTRADICTED
-        if area_alignment == AlignmentStatus.CONTRADICTS:
-            return ClaimStatus.CONTRADICTED
-        if issue_alignment == AlignmentStatus.CONTRADICTS:
+        if reviewability != Reviewability.NOT_REVIEWABLE and (
+            object_alignment == AlignmentStatus.CONTRADICTS
+            or area_alignment == AlignmentStatus.CONTRADICTS
+            or issue_alignment == AlignmentStatus.CONTRADICTS
+        ):
             return ClaimStatus.CONTRADICTED
         if evidence_standard_met and issue_alignment == AlignmentStatus.SUPPORTS:
             return ClaimStatus.SUPPORTED

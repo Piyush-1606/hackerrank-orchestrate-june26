@@ -137,12 +137,8 @@ class DecisionAgent(BaseAgent[DecisionInput, FinalDecisionResult]):
 
     @staticmethod
     def determine_claim_status(evidence: EvidenceValidationResult) -> ClaimStatus:
-        """Determine final claim status from evidence-only alignments."""
-        if evidence.object_alignment == AlignmentStatus.CONTRADICTS:
-            return ClaimStatus.CONTRADICTED
-        if evidence.area_alignment == AlignmentStatus.CONTRADICTS:
-            return ClaimStatus.CONTRADICTED
-        if evidence.issue_alignment == AlignmentStatus.CONTRADICTS:
+        """Determine final claim status from evidence-only results."""
+        if evidence.recommended_status == ClaimStatus.CONTRADICTED:
             return ClaimStatus.CONTRADICTED
 
         if (
@@ -250,7 +246,7 @@ class DecisionAgent(BaseAgent[DecisionInput, FinalDecisionResult]):
         if claim_status == ClaimStatus.SUPPORTED:
             base = "Image evidence supports the claimed object, affected area, and issue type."
         elif claim_status == ClaimStatus.CONTRADICTED:
-            base = cls.contradiction_reason(evidence)
+            base = "Visible evidence contradicts the claimed damage."
         else:
             base = "There is not enough reviewable visual evidence to support or contradict the claim."
 

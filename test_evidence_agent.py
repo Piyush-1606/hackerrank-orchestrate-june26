@@ -98,6 +98,33 @@ class EvidenceAgentTest(TestCase):
         self.assertEqual(result.area_alignment, AlignmentStatus.CONTRADICTS)
         self.assertEqual(result.recommended_status, ClaimStatus.CONTRADICTED)
 
+    def test_contradicted_issue(self) -> None:
+        result = EvidenceAgent().run(
+            (
+                _claim(issue_type=IssueType.DENT),
+                _vision(detected_issue_type=IssueType.NONE, damage_visible=False),
+            )
+        )
+
+        self.assertFalse(result.evidence_standard_met)
+        self.assertEqual(result.issue_alignment, AlignmentStatus.CONTRADICTS)
+        self.assertEqual(result.recommended_status, ClaimStatus.CONTRADICTED)
+
+    def test_wrong_object(self) -> None:
+        result = EvidenceAgent().run(
+            (
+                _claim(object_type=ObjectType.CAR),
+                _vision(
+                    detected_object=ObjectType.LAPTOP,
+                    quality_flags=[VisionQualityFlag.WRONG_OBJECT],
+                ),
+            )
+        )
+
+        self.assertEqual(result.object_alignment, AlignmentStatus.CONTRADICTS)
+        self.assertEqual(result.reviewability, Reviewability.NOT_REVIEWABLE)
+        self.assertEqual(result.recommended_status, ClaimStatus.NOT_ENOUGH_INFORMATION)
+
     def test_blurry_image(self) -> None:
         result = EvidenceAgent().run(
             (

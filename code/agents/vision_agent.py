@@ -2,18 +2,20 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
 try:
     from agents.base_agent import AgentRunContext, BaseAgent, RetryConfig
     from agents.claim_agent import ClaimAgent
     from models.schemas import ClaimInput, IssueType, Severity, VisionQualityFlag, VisionResult
     from utils.image_quality import analyze_image_quality, detect_blurry_image, detect_low_light
+    from utils.image_consistency import analyze_image_set
 except ModuleNotFoundError:
     from .base_agent import AgentRunContext, BaseAgent, RetryConfig
     from .claim_agent import ClaimAgent
     from ..models.schemas import ClaimInput, IssueType, Severity, VisionQualityFlag, VisionResult
     from ..utils.image_quality import analyze_image_quality, detect_blurry_image, detect_low_light
+    from ..utils.image_consistency import analyze_image_set
 
 
 class VisionAgent(BaseAgent[ClaimInput, VisionResult]):
@@ -70,6 +72,7 @@ class VisionAgent(BaseAgent[ClaimInput, VisionResult]):
         quality_results = [analyze_image_quality(str(path)) for path in resolved_paths]
         blurry_image_detected = any(result["blurry"] for result in quality_results)
         low_light_detected = any(result["low_light"] for result in quality_results)
+        consistency = analyze_image_set([str(path) for path in resolved_paths])
         image_quality_flags = self.determine_quality_flags(
             image_count=len(resolved_paths),
             damage_visible=damage_visible,
@@ -89,6 +92,7 @@ class VisionAgent(BaseAgent[ClaimInput, VisionResult]):
             detected_issue_type=detected_issue_type,
             detected_severity=detected_severity,
             confidence=confidence,
+            consistency=consistency,
         )
 
         self._log(
@@ -103,6 +107,9 @@ class VisionAgent(BaseAgent[ClaimInput, VisionResult]):
             confidence=confidence,
             blurry_image_detected=blurry_image_detected,
             low_light_detected=low_light_detected,
+            duplicate_images=consistency["duplicate_images"],
+            mixed_object_types=consistency["mixed_object_types"],
+            consistency_score=consistency["consistency_score"],
         )
 
         return VisionResult(
@@ -204,17 +211,28 @@ class VisionAgent(BaseAgent[ClaimInput, VisionResult]):
         detected_issue_type: IssueType,
         detected_severity: Severity,
         confidence: float,
+        consistency: dict[str, Any],
     ) -> str:
         """Build concise explanation for deterministic claim-guided vision."""
         if confidence == 0.0:
+            duplicates_text = (
+                "No duplicate images detected. "
+                if not consistency["duplicate_images"]
+                else "Duplicate images detected. "
+            )
             return (
                 "Image paths were validated, but visual damage analysis is not implemented yet. "
-                "No concrete claim-guided visual issue could be inferred."
+                "No concrete claim-guided visual issue could be inferred. "
+                f"{image_count} images reviewed. {duplicates_text}"
+                f"Consistency score {consistency['consistency_score']:.2f}."
             )
         return (
             f"Validated {image_count} image(s). Used claim text and object type as visual priors: "
             f"part={detected_object_part or 'unknown'}, issue={detected_issue_type}, "
             f"severity={detected_severity}, confidence={confidence:.2f}. "
+            f"{image_count} images reviewed. "
+            f"{'Duplicate images detected. ' if consistency['duplicate_images'] else 'No duplicate images detected. '}"
+            f"Consistency score {consistency['consistency_score']:.2f}. "
             "Future VLM integration should verify these candidates against pixels."
         )
 
