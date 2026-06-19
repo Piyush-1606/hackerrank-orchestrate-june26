@@ -48,6 +48,15 @@ class ImageQuality(StrEnum):
     UNUSABLE = "unusable"
 
 
+class VisionQualityFlag(StrEnum):
+    BLURRY_IMAGE = "blurry_image"
+    CROPPED_OR_OBSTRUCTED = "cropped_or_obstructed"
+    LOW_LIGHT_OR_GLARE = "low_light_or_glare"
+    WRONG_ANGLE = "wrong_angle"
+    DAMAGE_NOT_VISIBLE = "damage_not_visible"
+    WRONG_OBJECT = "wrong_object"
+
+
 class AlignmentStatus(StrEnum):
     SUPPORTS = "supports"
     CONTRADICTS = "contradicts"
@@ -229,6 +238,66 @@ class ImageAnalysisResult(ClaimBaseModel):
         if IssueType.NONE in self.visible_issue_types:
             self.visible_issue_types = [IssueType.NONE]
             self.visible_severity = Severity.NONE
+        return self
+
+
+class VisionResult(ClaimBaseModel):
+    claim_id: str | None = Field(default=None, description="Claim identifier, when available.")
+    detected_object: ObjectType | None = Field(
+        default=None,
+        description="Object detected from image evidence. Placeholder returns the claimed object when available.",
+    )
+    detected_issue_type: IssueType = Field(
+        default=IssueType.UNKNOWN,
+        description="Primary issue type detected from image evidence.",
+    )
+    detected_object_part: str | None = Field(
+        default=None,
+        description="Primary object part detected from image evidence.",
+    )
+    visible_parts: list[str] = Field(
+        default_factory=list,
+        description="Object parts visible in submitted images.",
+    )
+    image_quality_flags: list[VisionQualityFlag] = Field(
+        default_factory=list,
+        description="Image quality or suitability flags observed during vision analysis.",
+    )
+    supporting_image_ids: list[str] = Field(
+        default_factory=list,
+        description="Image identifiers used as support for the visual finding.",
+    )
+    damage_visible: bool = Field(
+        default=False,
+        description="Whether visual damage is visible in submitted images.",
+    )
+    confidence: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Confidence in visual analysis result.",
+    )
+    reasoning: str = Field(
+        default="",
+        description="Short explanation of the visual finding and limitations.",
+    )
+
+    @field_validator("visible_parts", "supporting_image_ids")
+    @classmethod
+    def deduplicate_strings(cls, value: list[str]) -> list[str]:
+        return list(dict.fromkeys(item.strip() for item in value if item.strip()))
+
+    @field_validator("image_quality_flags")
+    @classmethod
+    def deduplicate_quality_flags(cls, value: list[VisionQualityFlag]) -> list[VisionQualityFlag]:
+        return list(dict.fromkeys(value))
+
+    @model_validator(mode="after")
+    def validate_damage_visibility_consistency(self) -> VisionResult:
+        if self.damage_visible and self.detected_issue_type in {IssueType.NONE, IssueType.UNKNOWN}:
+            raise ValueError("damage_visible=true requires a concrete detected_issue_type")
+        if not self.damage_visible and self.detected_issue_type != IssueType.UNKNOWN:
+            raise ValueError("damage_visible=false should use detected_issue_type=unknown")
         return self
 
 
