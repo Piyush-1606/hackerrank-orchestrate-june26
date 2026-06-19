@@ -86,6 +86,7 @@ class EvidenceAgent(BaseAgent[EvidenceInput, EvidenceValidationResult]):
         evidence_standard_met = self.determine_evidence_standard_met(
             reviewability=reviewability,
             object_alignment=object_alignment,
+            issue_alignment=issue_alignment,
             area_alignment=area_alignment,
         )
         recommended_status = self.determine_recommended_status(
@@ -207,12 +208,14 @@ class EvidenceAgent(BaseAgent[EvidenceInput, EvidenceValidationResult]):
         *,
         reviewability: Reviewability,
         object_alignment: AlignmentStatus,
+        issue_alignment: AlignmentStatus,
         area_alignment: AlignmentStatus,
     ) -> bool:
-        """Evidence standard requires reviewable images and object/area support."""
+        """Evidence standard requires reviewable images and all core alignments to support."""
         return (
             reviewability == Reviewability.REVIEWABLE
             and object_alignment == AlignmentStatus.SUPPORTS
+            and issue_alignment == AlignmentStatus.SUPPORTS
             and area_alignment == AlignmentStatus.SUPPORTS
         )
 
@@ -300,7 +303,7 @@ class EvidenceAgent(BaseAgent[EvidenceInput, EvidenceValidationResult]):
     ) -> str:
         """Generate concise evidence standard rationale."""
         if evidence_standard_met:
-            return "Evidence is reviewable and supports the claimed object and affected area."
+            return "Evidence is reviewable and supports the claimed object, affected area, and issue type."
 
         if object_alignment == AlignmentStatus.CONTRADICTS:
             return "Evidence contradicts the claimed object."

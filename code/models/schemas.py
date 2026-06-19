@@ -296,8 +296,8 @@ class VisionResult(ClaimBaseModel):
     def validate_damage_visibility_consistency(self) -> VisionResult:
         if self.damage_visible and self.detected_issue_type in {IssueType.NONE, IssueType.UNKNOWN}:
             raise ValueError("damage_visible=true requires a concrete detected_issue_type")
-        if not self.damage_visible and self.detected_issue_type != IssueType.UNKNOWN:
-            raise ValueError("damage_visible=false should use detected_issue_type=unknown")
+        if not self.damage_visible and self.detected_issue_type not in {IssueType.UNKNOWN, IssueType.NONE}:
+            raise ValueError("damage_visible=false should use detected_issue_type=unknown or none")
         return self
 
 

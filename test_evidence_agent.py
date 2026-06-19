@@ -142,6 +142,25 @@ class EvidenceAgentTest(TestCase):
         self.assertEqual(result.supporting_image_ids, ["img_1", "img_2", "img_3"])
         self.assertEqual(result.recommended_status, ClaimStatus.SUPPORTED)
 
+    def test_reviewable_object_and_area_but_unknown_issue_is_not_enough_information(self) -> None:
+        result = EvidenceAgent().run(
+            (
+                _claim(issue_type=IssueType.SCRATCH, affected_area="rear_bumper"),
+                _vision(
+                    detected_issue_type=IssueType.UNKNOWN,
+                    detected_object_part="rear_bumper",
+                    damage_visible=False,
+                    confidence=0.8,
+                ),
+            )
+        )
+
+        self.assertFalse(result.evidence_standard_met)
+        self.assertEqual(result.object_alignment, AlignmentStatus.SUPPORTS)
+        self.assertEqual(result.area_alignment, AlignmentStatus.SUPPORTS)
+        self.assertEqual(result.issue_alignment, AlignmentStatus.UNKNOWN)
+        self.assertEqual(result.recommended_status, ClaimStatus.NOT_ENOUGH_INFORMATION)
+
 
 if __name__ == "__main__":
     main()
