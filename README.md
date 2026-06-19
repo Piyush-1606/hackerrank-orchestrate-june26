@@ -358,6 +358,34 @@ dataset/output.csv
 
 ---
 
+## Requirement Coverage Matrix
+
+| Problem Requirement | Implementation |
+|---|---|
+| Extract actual damage claim from conversation | ClaimAgent |
+| Inspect one or more submitted images | VisionAgent |
+| Decide whether image evidence is sufficient | EvidenceAgent |
+| Identify visible issue type | VisionAgent |
+| Identify relevant object part | VisionAgent |
+| Decide supported / contradicted / not_enough_information | DecisionAgent |
+| Select supporting image IDs | VisionAgent |
+| Flag image quality risks | image_quality.py + VisionAgent |
+| Flag authenticity risks | image_authenticity.py + VisionAgent |
+| Flag user-history risks | RiskAgent |
+| Estimate severity | VisionAgent + DecisionAgent |
+| Generate short justifications | EvidenceAgent + DecisionAgent |
+| Process multiple images | ReviewPipeline + VisionAgent |
+| Validate evidence requirements | EvidenceAgent |
+| Use user_history.csv | RiskAgent |
+| Produce output.csv | generate_submission.py |
+| Evaluate on sample_claims.csv | evaluation_report.md + evaluation scripts |
+| Stress testing and robustness validation | stress_test_pipeline.py |
+| End-to-end demonstration | demo.py |
+
+This matrix demonstrates complete coverage of the requirements specified in the HackerRank Orchestrate problem statement. Each requirement is implemented by a dedicated agent or supporting module within the multi-agent review pipeline.
+
+---
+
 ## Future Improvements
 
 - Stronger image-grounded damage localization
