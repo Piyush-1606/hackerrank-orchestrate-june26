@@ -159,3 +159,209 @@ Before submitting, confirm:
 After submission, the AI Judge may ask about your approach, implementation decisions, model usage, evaluation strategy, and how you used AI while building the solution.
 
 Be prepared to explain your solution in detail.
+
+---
+
+# Our Solution
+
+## Overview
+We developed a production-oriented multi-agent system for multi-modal damage claim verification across cars, laptops, and packages.
+
+The system combines:
+
+- Claim understanding from conversation transcripts
+- Image evidence analysis
+- Evidence sufficiency validation
+- User-history risk assessment
+- Final decision generation
+
+The system outputs:
+
+- evidence_standard_met
+- risk_flags
+- issue_type
+- object_part
+- claim_status
+- supporting_image_ids
+- severity
+
+while maintaining explainable justifications.
+
+---
+
+## Architecture
+Reference ARCHITECTURE.md.
+
+Pipeline:
+
+Claim Input
+|
+ClaimAgent
+|
+VisionAgent
+|
+EvidenceAgent
+|
+RiskAgent
+|
+DecisionAgent
+|
+output.csv
+
+---
+
+## Agent Responsibilities
+
+### ClaimAgent
+Extracts:
+
+- issue type
+- object part
+- severity
+- incident summary
+
+from claim conversations.
+
+### VisionAgent
+Performs:
+
+- image validation
+- blur detection
+- low-light detection
+- cropped image detection
+- image consistency analysis
+- authenticity analysis
+- supporting image selection
+
+Produces image-grounded evidence signals.
+
+### EvidenceAgent
+Evaluates:
+
+- evidence sufficiency
+- object alignment
+- issue alignment
+- contradiction detection
+- reviewability
+
+### RiskAgent
+Analyzes:
+
+- historical claims
+- rejected claims
+- manual reviews
+- recent claim activity
+
+Generates risk scores and risk flags.
+
+### DecisionAgent
+Combines all agent outputs and generates:
+
+- final claim status
+- justification
+- severity
+- final risk flags
+
+---
+
+## Evaluation Results
+Evaluated on dataset/sample_claims.csv.
+
+Results:
+
+MetricResultIssue Accuracy16 / 20 (80%)Part Accuracy19 / 20 (95%)Sample status distribution:
+
+- supported: 9
+- contradicted: 2
+- not_enough_information: 9
+
+---
+
+## Vision Quality Analysis
+Implemented image-grounded quality assessment:
+
+- blurry_image
+- low_light_or_glare
+- cropped_or_obstructed
+
+using OpenCV-based heuristics.
+
+---
+
+## Authenticity Analysis
+Implemented:
+
+- possible_manipulation
+- non_original_image
+- duplicate_submission
+
+using image consistency and image hashing techniques.
+
+---
+
+## Operational Characteristics
+
+- Local processing only
+- No external vision APIs
+- Estimated API cost: $0
+- Batch processing supported
+- Retry handling implemented
+- Modular agent architecture
+
+---
+
+## Repository Additions
+Key files added:
+
+ARCHITECTURE.md
+
+evaluation/
+
+- evaluation_report.md
+
+code/agents/
+
+- claim_agent.py
+- vision_agent.py
+- evidence_agent.py
+- risk_agent.py
+- decision_agent.py
+
+code/pipelines/
+
+- review_pipeline.py
+
+code/utils/
+
+- image_quality.py
+- image_consistency.py
+- image_authenticity.py
+
+---
+
+## Running the System
+Evaluate:
+
+python evaluate_full_pipeline_accuracy.py
+
+Run pipeline:
+
+python evaluate_pipeline.py
+
+Generate final submission:
+
+python generate_submission.py
+
+Output:
+
+dataset/output.csv
+
+---
+
+## Future Improvements
+
+- Stronger image-grounded damage localization
+- Advanced manipulation detection
+- OCR-based instruction detection
+- Confidence calibration
+- Learned vision models for improved damage classification
