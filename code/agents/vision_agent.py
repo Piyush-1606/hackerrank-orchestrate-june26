@@ -68,11 +68,13 @@ class VisionAgent(BaseAgent[ClaimInput, VisionResult]):
         detected_severity = self.select_severity(input_data, extraction.claimed_severity)
         damage_visible = detected_issue_type not in {IssueType.UNKNOWN, IssueType.NONE}
         blurry_image_detected = any(detect_blurry_image(str(path)) for path in resolved_paths)
+        low_light_detected = any(detect_low_light(str(path)) for path in resolved_paths)
         image_quality_flags = self.determine_quality_flags(
             image_count=len(resolved_paths),
             damage_visible=damage_visible,
             detected_issue_type=detected_issue_type,
             blurry_image_detected=blurry_image_detected,
+            low_light_detected=low_light_detected,
         )
         confidence = self.score_confidence(
             image_count=len(resolved_paths),
@@ -99,6 +101,7 @@ class VisionAgent(BaseAgent[ClaimInput, VisionResult]):
             damage_visible=damage_visible,
             confidence=confidence,
             blurry_image_detected=blurry_image_detected,
+            low_light_detected=low_light_detected,
         )
 
         return VisionResult(
@@ -155,11 +158,14 @@ class VisionAgent(BaseAgent[ClaimInput, VisionResult]):
         damage_visible: bool,
         detected_issue_type: IssueType,
         blurry_image_detected: bool,
+        low_light_detected: bool,
     ) -> list[VisionQualityFlag]:
         """Return deterministic quality flags available without pixel analysis."""
         flags: list[VisionQualityFlag] = []
         if blurry_image_detected:
             flags.append(VisionQualityFlag.BLURRY_IMAGE)
+        if low_light_detected:
+            flags.append(VisionQualityFlag.LOW_LIGHT_OR_GLARE)
         if not damage_visible:
             flags.append(VisionQualityFlag.DAMAGE_NOT_VISIBLE)
         return flags
@@ -272,3 +278,18 @@ def detect_blurry_image(image_path: str) -> bool:
 
     variance = cv2.Laplacian(image, cv2.CV_64F).var()
     return variance < 100.0
+
+
+def detect_low_light(image_path: str) -> bool:
+    """Detect low-light images using mean grayscale intensity.
+
+    A mean intensity below 50 on the 0-255 grayscale scale is treated as low
+    light. This catches very dark images while avoiding over-flagging normally
+    exposed indoor photos.
+    """
+    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    if image is None:
+        return False
+
+    mean_intensity = image.mean()
+    return mean_intensity < 50.0
