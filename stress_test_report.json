@@ -1,0 +1,21 @@
+{
+  "num_claims": 100,
+  "failures": [
+    "stress_2",
+    "stress_23",
+    "stress_25",
+    "stress_27",
+    "stress_28",
+    "stress_49",
+    "stress_65",
+    "stress_67",
+    "stress_70",
+    "stress_86"
+  ],
+  "exceptions": [],
+  "invalid_outputs": [],
+  "status_counts": {
+    "supported": 69,
+    "not_enough_information": 31
+  }
+}
