@@ -562,3 +562,62 @@ class RiskAssessmentResult(BaseModel):
     risk_flags: list[str] = Field(default_factory=list)
     risk_score: float
     justification: str
+
+
+class FinalDecisionResult(ClaimBaseModel):
+    claim_id: str | None = Field(default=None, description="Claim identifier, when available.")
+    claim_status: ClaimStatus = Field(..., description="Final claim review status.")
+    issue_type: IssueType = Field(..., description="Final issue type selected for output.")
+    object_part: str = Field(
+        default="unknown",
+        min_length=1,
+        description="Final affected object part selected for output.",
+    )
+    severity: Severity = Field(..., description="Final severity selected for output.")
+    confidence: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Final decision confidence.",
+    )
+    evidence_standard_met: bool = Field(
+        ...,
+        description="Whether evidence requirements were met.",
+    )
+    evidence_standard_met_reason: str = Field(
+        ...,
+        min_length=1,
+        description="Evidence sufficiency rationale from the evidence layer.",
+    )
+    claim_status_justification: str = Field(
+        ...,
+        min_length=1,
+        description="Concise final decision justification.",
+    )
+    supporting_image_ids: list[str] = Field(
+        default_factory=list,
+        description="Image identifiers supporting the final decision.",
+    )
+    valid_image: bool = Field(
+        ...,
+        description="Whether evidence was at least partially reviewable.",
+    )
+    risk_flags: list[str] = Field(
+        default_factory=lambda: ["none"],
+        description="Risk flags included for review context only.",
+    )
+    risk_score: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Risk score included for review context only.",
+    )
+    review_priority: str = Field(
+        default="normal",
+        description="Operational review priority derived from evidence and risk context.",
+    )
+
+    @field_validator("supporting_image_ids", "risk_flags")
+    @classmethod
+    def deduplicate_string_lists(cls, value: list[str]) -> list[str]:
+        return list(dict.fromkeys(item.strip() for item in value if item.strip()))
