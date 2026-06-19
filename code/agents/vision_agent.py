@@ -4,6 +4,8 @@ import logging
 from pathlib import Path
 from typing import Final
 
+import cv2
+
 try:
     from agents.base_agent import AgentRunContext, BaseAgent, RetryConfig
     from agents.claim_agent import ClaimAgent
@@ -65,10 +67,12 @@ class VisionAgent(BaseAgent[ClaimInput, VisionResult]):
         detected_object_part = self.select_object_part(input_data, extraction.affected_area)
         detected_severity = self.select_severity(input_data, extraction.claimed_severity)
         damage_visible = detected_issue_type not in {IssueType.UNKNOWN, IssueType.NONE}
+        blurry_image_detected = any(detect_blurry_image(str(path)) for path in resolved_paths)
         image_quality_flags = self.determine_quality_flags(
             image_count=len(resolved_paths),
             damage_visible=damage_visible,
             detected_issue_type=detected_issue_type,
+            blurry_image_detected=blurry_image_detected,
         )
         confidence = self.score_confidence(
             image_count=len(resolved_paths),
@@ -94,6 +98,7 @@ class VisionAgent(BaseAgent[ClaimInput, VisionResult]):
             detected_object_part=detected_object_part,
             damage_visible=damage_visible,
             confidence=confidence,
+            blurry_image_detected=blurry_image_detected,
         )
 
         return VisionResult(
@@ -149,11 +154,15 @@ class VisionAgent(BaseAgent[ClaimInput, VisionResult]):
         image_count: int,
         damage_visible: bool,
         detected_issue_type: IssueType,
+        blurry_image_detected: bool,
     ) -> list[VisionQualityFlag]:
         """Return deterministic quality flags available without pixel analysis."""
+        flags: list[VisionQualityFlag] = []
+        if blurry_image_detected:
+            flags.append(VisionQualityFlag.BLURRY_IMAGE)
         if not damage_visible:
-            return [VisionQualityFlag.DAMAGE_NOT_VISIBLE]
-        return []
+            flags.append(VisionQualityFlag.DAMAGE_NOT_VISIBLE)
+        return flags
 
     @staticmethod
     def score_confidence(
@@ -248,3 +257,18 @@ class VisionAgent(BaseAgent[ClaimInput, VisionResult]):
         selected. Keep provider-specific code out of the public agent contract.
         """
         raise NotImplementedError("VLM integration is not implemented yet")
+
+
+def detect_blurry_image(image_path: str) -> bool:
+    """Detect blur using variance of Laplacian.
+
+    A variance below 100 is treated as blurry. This is a common lightweight
+    threshold for natural images; it is intentionally conservative enough for
+    hackathon triage and can be calibrated later against labeled quality data.
+    """
+    image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    if image is None:
+        return False
+
+    variance = cv2.Laplacian(image, cv2.CV_64F).var()
+    return variance < 100.0
