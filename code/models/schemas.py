@@ -473,3 +473,23 @@ class FinalOutputRow(ClaimBaseModel):
             valid_image=decision.valid_image,
             severity=decision.severity,
         )
+
+from pydantic import BaseModel, Field
+
+
+class UserHistory(BaseModel):
+    user_id: str
+    past_claim_count: int
+    accept_claim: int
+    manual_review_claim: int
+    rejected_claim: int
+    last_90_days_claim_count: int
+    history_flags: str
+    history_summary: str
+
+
+class RiskAssessmentResult(BaseModel):
+    user_id: str
+    risk_flags: list[str] = Field(default_factory=list)
+    risk_score: float
+    justification: str
