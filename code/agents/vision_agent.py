@@ -8,12 +8,14 @@ try:
     from agents.base_agent import AgentRunContext, BaseAgent, RetryConfig
     from agents.claim_agent import ClaimAgent
     from models.schemas import ClaimInput, IssueType, Severity, VisionQualityFlag, VisionResult
+    from utils.image_authenticity import analyze_image_authenticity
     from utils.image_quality import analyze_image_quality, detect_blurry_image, detect_low_light
     from utils.image_consistency import analyze_image_set
 except ModuleNotFoundError:
     from .base_agent import AgentRunContext, BaseAgent, RetryConfig
     from .claim_agent import ClaimAgent
     from ..models.schemas import ClaimInput, IssueType, Severity, VisionQualityFlag, VisionResult
+    from ..utils.image_authenticity import analyze_image_authenticity
     from ..utils.image_quality import analyze_image_quality, detect_blurry_image, detect_low_light
     from ..utils.image_consistency import analyze_image_set
 
@@ -73,6 +75,7 @@ class VisionAgent(BaseAgent[ClaimInput, VisionResult]):
         blurry_image_detected = any(result["blurry"] for result in quality_results)
         low_light_detected = any(result["low_light"] for result in quality_results)
         consistency = analyze_image_set([str(path) for path in resolved_paths])
+        authenticity = analyze_image_authenticity([str(path) for path in resolved_paths])
         image_quality_flags = self.determine_quality_flags(
             image_count=len(resolved_paths),
             damage_visible=damage_visible,
@@ -80,6 +83,14 @@ class VisionAgent(BaseAgent[ClaimInput, VisionResult]):
             blurry_image_detected=blurry_image_detected,
             low_light_detected=low_light_detected,
         )
+        vision_risk_flags = []
+        if authenticity["possible_manipulation"]:
+            vision_risk_flags.append("possible_manipulation")
+        if authenticity["non_original_image"]:
+            vision_risk_flags.append("non_original_image")
+        if authenticity["duplicate_submission"]:
+            vision_risk_flags.append("duplicate_submission")
+
         confidence = self.score_confidence(
             image_count=len(resolved_paths),
             detected_object_part=detected_object_part,
@@ -110,6 +121,10 @@ class VisionAgent(BaseAgent[ClaimInput, VisionResult]):
             duplicate_images=consistency["duplicate_images"],
             mixed_object_types=consistency["mixed_object_types"],
             consistency_score=consistency["consistency_score"],
+            possible_manipulation=authenticity["possible_manipulation"],
+            non_original_image=authenticity["non_original_image"],
+            duplicate_submission=authenticity["duplicate_submission"],
+            authenticity_reason=authenticity["reason"],
         )
 
         return VisionResult(
@@ -119,6 +134,7 @@ class VisionAgent(BaseAgent[ClaimInput, VisionResult]):
             detected_object_part=detected_object_part,
             visible_parts=[detected_object_part] if detected_object_part else [],
             image_quality_flags=image_quality_flags,
+            risk_flags=vision_risk_flags,
             supporting_image_ids=image_ids,
             damage_visible=damage_visible,
             confidence=confidence,

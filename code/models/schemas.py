@@ -263,6 +263,10 @@ class VisionResult(ClaimBaseModel):
         default_factory=list,
         description="Image quality or suitability flags observed during vision analysis.",
     )
+    risk_flags: list[str] = Field(
+        default_factory=list,
+        description="Authenticity or image-related risk flags detected during vision analysis.",
+    )
     supporting_image_ids: list[str] = Field(
         default_factory=list,
         description="Image identifiers used as support for the visual finding.",
@@ -282,7 +286,7 @@ class VisionResult(ClaimBaseModel):
         description="Short explanation of the visual finding and limitations.",
     )
 
-    @field_validator("visible_parts", "supporting_image_ids")
+    @field_validator("visible_parts", "supporting_image_ids", "risk_flags")
     @classmethod
     def deduplicate_strings(cls, value: list[str]) -> list[str]:
         return list(dict.fromkeys(item.strip() for item in value if item.strip()))

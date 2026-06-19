@@ -139,6 +139,44 @@ class DecisionAgentTest(TestCase):
         self.assertFalse(result.valid_image)
         self.assertEqual(result.supporting_image_ids, [])
 
+    def test_vision_authenticity_risk_flags_merge_into_decision(self) -> None:
+        result = DecisionAgent().run(
+            (
+                _claim(),
+                _vision(
+                    issue_type=IssueType.DENT,
+                    object_part="rear_bumper",
+                    supporting_image_ids=["img_1"],
+                    damage_visible=True,
+                ),
+                _evidence(),
+                _risk(risk_flags=["none"], risk_score=0.2),
+            )
+        )
+
+        self.assertEqual(result.claim_status, ClaimStatus.SUPPORTED)
+        self.assertEqual(result.review_priority, "normal")
+        self.assertEqual(result.risk_flags, ["none"])
+
+    def test_decision_includes_vision_risk_flags(self) -> None:
+        vision = _vision(
+            issue_type=IssueType.DENT,
+            object_part="rear_bumper",
+            supporting_image_ids=["img_1"],
+            damage_visible=True,
+        )
+        vision.risk_flags = ["possible_manipulation"]
+        result = DecisionAgent().run((
+            _claim(),
+            vision,
+            _evidence(),
+            _risk(risk_flags=["none"], risk_score=0.2),
+        ))
+
+        self.assertEqual(result.claim_status, ClaimStatus.SUPPORTED)
+        self.assertEqual(result.review_priority, "high")
+        self.assertEqual(result.risk_flags, ["possible_manipulation"])
+
     def test_high_risk_supported_claim(self) -> None:
         result = DecisionAgent().run(
             (

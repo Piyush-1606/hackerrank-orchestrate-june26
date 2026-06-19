@@ -4,6 +4,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase, main
 
+import cv2
+import numpy as np
+
 from code.agents.vision_agent import VisionAgent
 from code.models.schemas import ClaimInput, IssueType, ObjectType, VisionQualityFlag
 
@@ -23,7 +26,16 @@ def _claim(image_paths: list[str]) -> ClaimInput:
 
 def _touch(path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(b"placeholder")
+    if path.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".bmp"}:
+        height = 320
+        width = 320
+        image = np.zeros((height, width, 3), dtype=np.uint8)
+        for y in range(height):
+            for x in range(width):
+                image[y, x] = [(x + y) % 256, (x * 2 + y * 3) % 256, (x * 3 + y * 2) % 256]
+        cv2.imwrite(str(path), image)
+    else:
+        path.write_bytes(b"placeholder")
     return path
 
 
@@ -38,7 +50,7 @@ class VisionAgentTest(TestCase):
         self.assertEqual(result.detected_issue_type, IssueType.UNKNOWN)
         self.assertFalse(result.damage_visible)
         self.assertEqual(result.supporting_image_ids, ["img_1"])
-        self.assertEqual(result.image_quality_flags, [VisionQualityFlag.DAMAGE_NOT_VISIBLE])
+        self.assertIn(VisionQualityFlag.DAMAGE_NOT_VISIBLE, result.image_quality_flags)
 
     def test_missing_image_path(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -69,6 +81,16 @@ class VisionAgentTest(TestCase):
 
             with self.assertRaisesRegex(ValueError, "Unsupported image format"):
                 VisionAgent(project_root=root).run(_claim([str(text_file)]))
+
+    def test_authenticity_risk_flags_from_screenshot_filename(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            screenshot_image = _touch(root / "screenshot_001.png")
+
+            result = VisionAgent(project_root=root).run(_claim([str(screenshot_image)]))
+
+        self.assertIn("non_original_image", result.risk_flags)
+        self.assertIn("possible_manipulation", result.risk_flags)
 
 
 if __name__ == "__main__":

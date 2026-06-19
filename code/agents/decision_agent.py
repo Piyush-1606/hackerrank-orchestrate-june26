@@ -84,7 +84,7 @@ class DecisionAgent(BaseAgent[DecisionInput, FinalDecisionResult]):
         object_part = self.select_object_part(claim, vision)
         severity = self.select_severity(claim, vision)
         valid_image = evidence.reviewability != Reviewability.NOT_REVIEWABLE
-        risk_flags = self.get_risk_flags(risk)
+        risk_flags = self.get_risk_flags(risk, vision)
         risk_score = self.get_risk_score(risk)
         review_priority = self.determine_review_priority(
             claim_status=claim_status,
@@ -101,6 +101,7 @@ class DecisionAgent(BaseAgent[DecisionInput, FinalDecisionResult]):
             claim_status=claim_status,
             evidence=evidence,
             risk=risk,
+            vision=vision,
             review_priority=review_priority,
         )
 
@@ -186,11 +187,13 @@ class DecisionAgent(BaseAgent[DecisionInput, FinalDecisionResult]):
         return claim.claimed_severity
 
     @staticmethod
-    def get_risk_flags(risk: RiskAssessmentResult) -> list[str]:
-        """Extract normalized risk flags from current RiskAgent schema."""
+    def get_risk_flags(risk: RiskAssessmentResult, vision: VisionResult) -> list[str]:
+        """Extract normalized risk flags from risk assessment and vision authenticity signals."""
         flags = getattr(risk, "risk_flags", None) or ["none"]
-        normalized = [flag for flag in flags if flag and flag != "none"]
-        return normalized or ["none"]
+        risk_flags = [flag for flag in flags if flag and flag != "none"]
+        vision_flags = [flag for flag in getattr(vision, "risk_flags", []) if flag]
+        merged = list(dict.fromkeys(risk_flags + vision_flags))
+        return merged or ["none"]
 
     @staticmethod
     def get_risk_score(risk: RiskAssessmentResult) -> float:
@@ -240,6 +243,7 @@ class DecisionAgent(BaseAgent[DecisionInput, FinalDecisionResult]):
         claim_status: ClaimStatus,
         evidence: EvidenceValidationResult,
         risk: RiskAssessmentResult,
+        vision: VisionResult,
         review_priority: str,
     ) -> str:
         """Generate concise final decision justification."""
@@ -250,7 +254,7 @@ class DecisionAgent(BaseAgent[DecisionInput, FinalDecisionResult]):
         else:
             base = "There is not enough reviewable visual evidence to support or contradict the claim."
 
-        risk_flags = cls.get_risk_flags(risk)
+        risk_flags = cls.get_risk_flags(risk, vision)
         risk_text = ""
         if any(flag != "none" for flag in risk_flags):
             risk_text = f" Risk flags affect review priority only: {', '.join(risk_flags)}."
